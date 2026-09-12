@@ -1,4 +1,4 @@
-# AI SOC Triage Engine — Smart Alert Categorization & Analytics
+# ZeroNoise: Operational AI for Efficient Security Incident Management
 
 [![Platform](https://img.shields.io/badge/Platform-Python%203.8%2B-blue.svg)]()
 [![Framework](https://img.shields.io/badge/API-Flask-black.svg)]()
@@ -6,7 +6,7 @@
 [![ML Model](https://img.shields.io/badge/Model-XGBoost-orange.svg)]()
 [![License](https://img.shields.io/badge/License-Apache%202.0-lightgrey.svg)]()
 
-**AI SOC Triage Engine** is an intelligent cybersecurity triage application engineered to reduce Security Operations Center (SOC) alert fatigue. It fuses an **XGBoost machine learning model** with historical telemetry tracking to automatically classify and grade incoming security incidents.
+**ZeroNoise** is an intelligent cybersecurity triage application engineered to reduce Security Operations Center (SOC) alert fatigue. It fuses an **XGBoost machine learning model** with historical telemetry tracking to automatically classify and grade incoming security incidents.
 
 It solves digital alert chaos by processing incident categories, MITRE ATT&CK techniques, and historical false positive rates in real-time, allowing security teams to focus on actual threats while automatically archiving benign alerts.
 

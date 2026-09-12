@@ -4,7 +4,7 @@ import plotly.express as px
 import time
 import os
 
-st.set_page_config(page_title="Security Incident Dashboard", layout="wide")
+st.set_page_config(page_title="ZeroNoise Dashboard", layout="wide")
 st.markdown("""
     <style>
         .metric-card {
@@ -33,7 +33,7 @@ def load_data():
     else:
         return pd.DataFrame()
 
-st.title("🔴 Live Security Incident & Alert Dashboard")
+st.title("🔴 ZeroNoise: Security Incident & Alert Dashboard")
 
 # Auto-refresh mechanism
 col_title, col_refresh = st.columns([3, 1])
@@ -43,7 +43,7 @@ with col_refresh:
 df = load_data()
 
 if df.empty:
-    st.info("Waiting for live telemetry data. Start the Live Stream in the Core SOC Triage Console.")
+    st.info("Waiting for live telemetry data. Start the Live Stream in the ZeroNoise Operational Console.")
 else:
     st.sidebar.header("Filter Parameters")
     grade_filter = st.sidebar.multiselect("Select Incident Grade:", options=df["IncidentGrade"].dropna().unique(), default=df["IncidentGrade"].dropna().unique())
