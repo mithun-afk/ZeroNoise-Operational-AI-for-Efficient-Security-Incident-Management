@@ -5,6 +5,64 @@
     <meta charset="UTF-8">
     <title>Enterprise Security Operations Center - Live Triage</title>
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            color: white;
+            transition: background 0.3s;
+        }
+        .btn-start {
+            background-color: #28a745;
+        }
+        .btn-start:hover {
+            background-color: #218838;
+        }
+        .btn-stop {
+            background-color: #dc3545;
+        }
+        .btn-stop:hover {
+            background-color: #c82333;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .auto-archived {
+            opacity: 0.4;
+            transition: opacity 1s;
+        }
+        
+        #status-indicator {
+            font-weight: bold;
+            color: #6c757d;
+        }
+        .live-pulse {
+            color: #28a745 !important;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
 </head>
 <body>
     <div class="navbar">
@@ -14,9 +72,15 @@
 
     <div class="container">
         <h3>Live Event Processing Queue</h3>
-        <p>Click an incoming event to trigger the real-time XGBoost triage classifier pipeline.</p>
+        <p>Real-time telemetry streams are evaluated automatically by the XGBoost triage classifier pipeline.</p>
         
-        <table class="alert-table">
+        <div class="controls">
+            <button class="btn btn-start" id="startBtn" onclick="toggleStream(true)">▶ Start Live Stream</button>
+            <button class="btn btn-stop" id="stopBtn" onclick="toggleStream(false)" disabled>■ Stop Stream</button>
+            <span id="status-indicator">● Offline</span>
+        </div>
+
+        <table class="alert-table" id="alertsTable">
             <thead>
                 <tr>
                     <th>Alert ID</th>
@@ -26,52 +90,75 @@
                     <th>AI Evaluation Status</th>
                 </tr>
             </thead>
-           <tbody>
-    <tr onclick="processAlert(this, '1001', '524', 'LateralMovement', 'T1021')">
-        <td>ALT-1001</td>
-        <td>524</td>
-        <td>LateralMovement</td>
-        <td>T1021</td>
-        <td><span class="badge pending">Ready to Triage</span></td>
-    </tr>
-    <tr onclick="processAlert(this, '1002', '27', 'InitialAccess', 'T1078')">
-        <td>ALT-1002</td>
-        <td>27</td>
-        <td>InitialAccess</td>
-        <td>T1078</td>
-        <td><span class="badge pending">Ready to Triage</span></td>
-    </tr>
-    <!-- This row demonstrates the Auto-Archive / False Positive logic -->
-    <tr onclick="processAlert(this, '1003', '515', 'Discovery', 'T1087')">
-        <td>ALT-1003</td>
-        <td>515</td>
-        <td>Discovery</td>
-        <td>T1087</td>
-        <td><span class="badge pending">Ready to Triage</span></td>
-    </tr>
-</tbody>
+            <tbody id="tableBody">
+                <!-- Rows will be prepended here -->
+            </tbody>
         </table>
     </div>
 
     <script>
-        async function processAlert(row, alertId, detectorId, category, mitre) {
-    const response = await fetch('/predict', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({category: category, mitre: mitre, fp_rate: 0.1}) // Add real FP rate here
-    });
-    
-    const result = await response.json();
-    
-    // Find the status cell in the row and update it
-    let statusCell = row.cells[4];
-    statusCell.innerHTML = `<span style="color:${result.color}; font-weight:bold;">${result.status}</span>`;
-    
-    // If it's green (Auto-Archived), fade the row out
-    if (result.color === 'green') {
-        row.style.opacity = "0.3";
-    }
-}
+        let eventSource;
+        const maxRows = 50; // Keep table size manageable
+
+        function setupEventSource() {
+            if (!eventSource) {
+                eventSource = new EventSource("/api/stream");
+                eventSource.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    addAlertRow(data);
+                };
+            }
+        }
+
+        async function toggleStream(isStreaming) {
+            const response = await fetch('/api/toggle_stream', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({streaming: isStreaming})
+            });
+            
+            if (response.ok) {
+                document.getElementById('startBtn').disabled = isStreaming;
+                document.getElementById('stopBtn').disabled = !isStreaming;
+                
+                const indicator = document.getElementById('status-indicator');
+                if (isStreaming) {
+                    indicator.innerHTML = "● Live Stream Active";
+                    indicator.className = "live-pulse";
+                    setupEventSource();
+                } else {
+                    indicator.innerHTML = "● Paused";
+                    indicator.className = "";
+                }
+            }
+        }
+
+        function addAlertRow(data) {
+            const tbody = document.getElementById('tableBody');
+            const row = document.createElement('tr');
+            row.className = "fade-in";
+            
+            if (data.color === 'green') {
+                row.classList.add('auto-archived');
+            }
+            
+            row.innerHTML = `
+                <td>ALT-${data.alertId.substring(0, 8) || Math.floor(Math.random()*10000)}</td>
+                <td>${data.detectorId}</td>
+                <td>${data.category}</td>
+                <td>${data.mitre}</td>
+                <td><span style="color:${data.color}; font-weight:bold;">${data.status} <br><small>(${(data.confidence * 100).toFixed(1)}%)</small></span></td>
+            `;
+            
+            tbody.insertBefore(row, tbody.firstChild);
+            
+            if (tbody.children.length > maxRows) {
+                tbody.removeChild(tbody.lastChild);
+            }
+        }
+        
+        // Initialize SSE connection but wait for stream to start
+        setupEventSource();
     </script>
 </body>
 </html>

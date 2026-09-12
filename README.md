@@ -1,86 +1,135 @@
-# Security Incident Triage System
+# AI SOC Triage Engine — Smart Alert Categorization & Analytics
 
-## Abstract
+[![Platform](https://img.shields.io/badge/Platform-Python%203.8%2B-blue.svg)]()
+[![Framework](https://img.shields.io/badge/API-Flask-black.svg)]()
+[![Dashboard](https://img.shields.io/badge/Dashboard-Streamlit-red.svg)]()
+[![ML Model](https://img.shields.io/badge/Model-XGBoost-orange.svg)]()
+[![License](https://img.shields.io/badge/License-Apache%202.0-lightgrey.svg)]()
 
-Security Operations Centers (SOC) are frequently overwhelmed by a high volume of alerts, many of which are false positives. This project introduces a machine learning-based security incident triage system designed to predict and analyze cybersecurity alerts, thereby reducing alert fatigue. By leveraging historical telemetry data, the system calculates detector-specific false positive rates and trains an XGBoost classifier to automatically grade incoming alerts (e.g., True Positive, False Positive). The solution encompasses a complete pipeline: an automated model training script, a RESTful Flask API for real-time inference and integration, and an interactive Streamlit dashboard for SOC analysts to visualize trends and monitor alert distributions. This approach significantly streamlines the incident response workflow, enabling analysts to focus on genuine threats.
+**AI SOC Triage Engine** is an intelligent cybersecurity triage application engineered to reduce Security Operations Center (SOC) alert fatigue. It fuses an **XGBoost machine learning model** with historical telemetry tracking to automatically classify and grade incoming security incidents.
 
+It solves digital alert chaos by processing incident categories, MITRE ATT&CK techniques, and historical false positive rates in real-time, allowing security teams to focus on actual threats while automatically archiving benign alerts.
 
-## Overview
+---
 
-The repository consists of three main components:
-1. **Model Training (`train.py`)**: An automated script to preprocess telemetry data, calculate historical False Positive (FP) rates per detector, and train an XGBoost classifier with balanced class weights to predict the incident grade.
-2. **Flask API (`app.py`)**: A backend web service exposing endpoints for real-time predictions and analytics summaries. It evaluates incoming alerts based on the trained XGBoost model.
-3. **Streamlit Dashboard (`dashboard.py`)**: An interactive analytics dashboard for security operations center (SOC) analysts to visualize alert trends, filter telemetry records, and download summary reports.
+## Key Features
 
-## Features
+| Feature | Description |
+| :--- | :--- |
+| **🧠 ML-Powered Threat Triage** | Balanced XGBoost classifier determining if an alert is a True Positive, False Positive, or needs Manual Review. |
+| **📉 Automated FP Reduction** | Computes and utilizes historical False Positive rates per Detector ID to intelligently adjust confidence. |
+| **⚡ Live REST API** | Flask-based endpoint (`/api/predict`) delivering real-time inference for live SOC queues. |
+| **📊 Analytics Dashboard** | Interactive Streamlit dashboard for filtering alerts, tracking daily trends, and analyzing incident grade distributions. |
+| **⚖️ Class Imbalance Handling** | Native `compute_sample_weight` integration during training to correct benign-only bias in security datasets. |
+| **✨ Intuitive Web UI** | Flask-served HTML interface with color-coded threat statuses (Auto-Archived, Threat Detected). |
 
-- **Automated Triage**: Classifies alerts based on Category, MITRE ATT&CK techniques, and historical detector behavior.
-- **RESTful Endpoints**:
-  - `POST /predict`: Predicts the status of an alert (e.g., "Auto-Archived", "THREAT DETECTED", "Manual Review") along with a confidence score.
-  - `GET /api/analytics/summary`: Serves historical detector metrics.
-- **Interactive Analytics**: Rich visualizations including Daily Alert Trends, Incident Grade Distributions, and Alerts by Category, built with Streamlit and Plotly.
-- **Data Export**: Capability to download filtered summary reports directly from the dashboard.
+### Visual Showcase (Placeholders)
 
-## Requirements
+| Live SOC Triage Console | Telemetry Dashboard | Alert Trend Analytics |
+| :---: | :---: | :---: |
+| <img src="screenshots/console.jpeg" width="260" alt="Live Console" /> | <img src="screenshots/dashboard.jpeg" width="260" alt="Streamlit Dashboard" /> | <img src="screenshots/analytics.jpeg" width="260" alt="Trend Analytics" /> |
+| **Real-time Alert Processing & Inference** | **Interactive Streamlit Metrics** | **Daily Incident Trends & Distributions** |
 
-Ensure you have Python 3.x installed along with the following packages:
+---
 
-```bash
-pip install flask pandas numpy xgboost scikit-learn joblib streamlit plotly
+## Architecture Overview
+
+The system is built on a clean separation between the offline training pipeline, the real-time inference API, and the analytics presentation layer.
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             PRESENTATION LAYER                              │
+│       Streamlit Dashboard (dashboard.py) • Web Console (index.html)         │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │ REST / HTTP
+┌──────────────────────────────────────▼──────────────────────────────────────┐
+│                                 API LAYER                                   │
+│    Flask App (app.py) • /api/predict • Label Encoders (scikit-learn)        │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │ Features (Numpy)
+┌──────────────────────────────────────▼──────────────────────────────────────┐
+│                              INFERENCE LAYER                                │
+│       XGBoost Multi-class Model (triage_xgboost_model.pkl)                  │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │
+                ┌──────────────────────┴──────────────────────┐
+                ▼                                             ▼
+┌──────────────────────────────────────┐    ┌──────────────────────────────────┐
+│          DATA & TELEMETRY LAYER      │    │        TRAINING PIPELINE         │
+│  • detector_historical_stats.csv     │    │  • train.py                      │
+│  • GUIDE_Test.csv (Telemetry Data)   │    │  • Stratified Splits & Weighting │
+└──────────────────────────────────────┘    └──────────────────────────────────┘
 ```
+
+### System Processing Pipeline
+
+```text
+[ New Security Alert Received ]
+           │
+           ▼
+[ Flask API (/api/predict) ] ───► Extracts Category & MITRE Technique
+           │
+           ▼
+[ Historical Telemetry ] ───────► Looks up Historical FP Rate by Detector ID
+           │
+           ▼
+[ Feature Encoding ] ───────────► Scikit-learn LabelEncoders (le_cat, le_mitre)
+           │
+           ▼
+[ XGBoost Classifier ] ─────────► Outputs Class Probabilities
+           │
+           ▼
+[ Decision Logic Engine ]
+   ├─► Confidence > 0.70 & FP ──────► [ Auto-Archived (Green) ]
+   ├─► Confidence > 0.60 & TP ──────► [ THREAT DETECTED (Red) ]
+   └─► Otherwise ───────────────────► [ Manual Review (Orange) ]
+```
+
+---
 
 ## Project Structure
 
-- `train.py`: The machine learning pipeline script to train the XGBoost model and save encoders.
-- `app.py`: The main Flask application for serving model inferences.
-- `dashboard.py`: The Streamlit application for the interactive dashboard.
-- `triage_xgboost_model.pkl`: The trained XGBoost model (generated after running `train.py`).
-- `le_*.pkl`: Saved LabelEncoders for categorical features.
-- `detector_historical_stats.csv`: Precomputed historical FP rates for detectors.
-- `GUIDE_Test.csv`: Sample historical telemetry dataset (required for training and the dashboard).
-- `/templates` & `/static`: Frontend assets for the Flask application.
+```text
+projectvac/
+├── app.py                            # Flask REST API & Live Inference Server
+├── dashboard.py                      # Streamlit SOC Analytics Interface
+├── train.py                          # ML Pipeline & XGBoost Training Script
+├── templates/
+│   └── index.html                    # Frontend SOC Triage Web UI
+├── static/                           # Web assets
+├── le_*.pkl                          # Label Encoders (Category, MITRE, Target)
+├── triage_xgboost_model.pkl          # Serialized XGBoost Model Weights
+├── detector_historical_stats.csv     # Pre-computed temporal detector metrics
+├── GUIDE_Test.csv                    # Raw Telemetry Dataset
+└── README.md                         # Project documentation
+```
 
-## Usage
+---
+
+## Setup & Execution
 
 ### 1. Model Training
-Before running the API, ensure the model and encoders are generated. Place your historical telemetry data (`GUIDE_Test.csv`) in the root directory and run:
+To train the XGBoost model and generate the required LabelEncoders and historical stats from your telemetry data:
 ```bash
 python train.py
 ```
-This will output `triage_xgboost_model.pkl`, the encoder `.pkl` files, and evaluate the model on a test split.
+*Note: This will process `GUIDE_Test.csv`, compute historical False Positive rates, balance class weights, and export `.pkl` files.*
 
-### 2. Start the API Server
-Run the Flask application to start the inference API:
+### 2. Live Inference API
+Start the Flask application to serve the model for predictions:
 ```bash
 python app.py
 ```
-The server will start on `http://localhost:5000`. You can send a `POST` request to `/predict` or `/api/predict` with JSON data representing an alert.
+*The API will be available at `http://localhost:5000` with the web console at the root URL.*
 
-### 3. Launch the Dashboard
-To visualize the telemetry data and metrics, start the Streamlit dashboard in a separate terminal:
+### 3. Analytics Dashboard
+Launch the Streamlit analytics interface to visualize alert metrics:
 ```bash
 streamlit run dashboard.py
 ```
-This will launch the dashboard in your default web browser.
 
-## API Documentation
+---
 
-### `POST /predict`
-Predicts the severity and action required for a given alert.
+## License
 
-**Request Body:**
-```json
-{
-  "category": "Credential Access",
-  "mitre": "T1003",
-  "fp_rate": 0.4
-}
-```
-
-**Response:**
-```json
-{
-  "status": "THREAT DETECTED",
-  "color": "red"
-}
-```
+Copyright 2026. Licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).
