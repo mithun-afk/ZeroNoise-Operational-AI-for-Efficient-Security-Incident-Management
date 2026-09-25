@@ -187,7 +187,7 @@ if nav == "Live SOC":
                 
                 <h5 style="color: #9ca3af;">ML FEATURE IMPORTANCE (SHAP)</h5>
                 <div style="font-size: 0.85rem; line-height: 1.8;">
-            """
+            """, unsafe_allow_html=True)
             
             # Extract SHAP from raw_message
             try:
@@ -195,19 +195,22 @@ if nav == "Live SOC":
                 raw_data = json.loads(alert['raw_message'])
                 shap_exp = raw_data.get("shap_explanation", {})
                 
-                # Render feature importance bars
-                for feat, val in sorted(shap_exp.items(), key=lambda x: abs(x[1]), reverse=True):
-                    color = "#ef4444" if val > 0 else "#3b82f6"
-                    bar_width = min(abs(val) * 50, 100) # scale for demo
-                    st.markdown(f"""
-                        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                            <span style="color: #9ca3af; width: 40%;">{feat}</span>
-                            <div style="width: 50%; background-color: #1f2937; border-radius: 3px; height: 10px;">
-                                <div style="width: {bar_width}%; background-color: {color}; height: 10px; border-radius: 3px;"></div>
+                if not shap_exp:
+                    st.markdown("<span style='color: #9ca3af;'>SHAP explanations not available for this alert (Legacy).</span>", unsafe_allow_html=True)
+                else:
+                    # Render feature importance bars
+                    for feat, val in sorted(shap_exp.items(), key=lambda x: abs(x[1]), reverse=True):
+                        color = "#ef4444" if val > 0 else "#3b82f6"
+                        bar_width = min(abs(val) * 50, 100) # scale for demo
+                        st.markdown(f"""
+                            <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <span style="color: #9ca3af; width: 40%;">{feat}</span>
+                                <div style="width: 50%; background-color: #1f2937; border-radius: 3px; height: 10px;">
+                                    <div style="width: {bar_width}%; background-color: {color}; height: 10px; border-radius: 3px;"></div>
+                                </div>
+                                <span style="color: {color}; font-size: 0.7rem; width: 10%; text-align: right;">{val:+.2f}</span>
                             </div>
-                            <span style="color: {color}; font-size: 0.7rem; width: 10%; text-align: right;">{val:+.2f}</span>
-                        </div>
-                    """, unsafe_allow_html=True)
+                        """, unsafe_allow_html=True)
             except Exception as e:
                 st.markdown("<span style='color: #9ca3af;'>SHAP explanations not available for this alert.</span>", unsafe_allow_html=True)
 
@@ -275,20 +278,20 @@ elif nav == "Incidents":
             
             if not inc_alerts.empty:
                 # Generate a Mermaid Graph based on the MITRE techniques
-                mermaid_code = "graph TD;\\n"
+                mermaid_code = "graph TD;\n"
                 prev_node = "Initial Access"
-                mermaid_code += f"    Start((Alert Stream)) --> {prev_node};\\n"
+                mermaid_code += f"    Start((Alert Stream)) --> {prev_node};\n"
                 
                 for idx, row in inc_alerts.iterrows():
                     tech = row["mitre_techniques"]
                     if tech and tech != "None":
                         # Clean up strings for Mermaid
                         clean_tech = tech.replace(" ", "_").replace("-", "_")
-                        mermaid_code += f"    {prev_node} -->|{row['timestamp'].strftime('%H:%M:%S')}| {clean_tech}[{tech}];\\n"
+                        mermaid_code += f"    {prev_node} -->|{row['timestamp'].strftime('%H:%M:%S')}| {clean_tech}[{tech}];\n"
                         prev_node = clean_tech
                 
                 # Render using a custom HTML component to load Mermaid.js
-                html_code = f\"\"\"
+                html_code = f"""
                 <div class="mermaid" style="background-color: #111827; padding: 20px; border-radius: 10px; color: white;">
                     {mermaid_code}
                 </div>
@@ -296,7 +299,7 @@ elif nav == "Incidents":
                     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
                     mermaid.initialize({{ startOnLoad: true, theme: 'dark' }});
                 </script>
-                \"\"\"
+                """
                 import streamlit.components.v1 as components
                 components.html(html_code, height=400)
             else:
